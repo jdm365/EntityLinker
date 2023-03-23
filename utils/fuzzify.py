@@ -1,3 +1,7 @@
+import random
+import string
+
+
 class Fuzzifier:
     def __init__(self):
         pass
@@ -55,7 +59,7 @@ class Fuzzifier:
         return ''.join(result)
 
 
-    def apply_all(self, text, corrupt_frequency=0.10):
+    def fuzzify(self, text, corrupt_frequency=0.10):
         """
         Apply all fuzzification methods to a string
         """
