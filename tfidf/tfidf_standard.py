@@ -6,12 +6,14 @@ from utils.fuzzify import Fuzzifier
 from vector_compression import * 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
+import pynndescent
 import faiss
 import torch as T
 import numpy as np
 import sys
 from scipy.spatial import KDTree
 import logging
+import numba
 
 
 
@@ -41,7 +43,47 @@ def dedupe_knn(addresses, k=10):
     neighbors = NearestNeighbors(n_neighbors=k, n_jobs=-1, algorithm='ball_tree')
     neighbors.fit(compressed_vectors)
     distances, idxs = neighbors.kneighbors(compressed_vectors)
-    return idxs 
+    return create_dedupe_df(addresses, idxs, distances)
+
+
+@numba.jit(fastmath=True)
+def euclidean_distance(x, y):
+    """
+    Calculate euclidean distance between two vectors
+    """
+    return np.sqrt(np.sum((x - y)**2))
+
+@numba.jit(fastmath=True)
+def cosine_distance(x, y):
+    """
+    Calculate cosine distance between two vectors
+    """
+    return 1 - np.dot(x, y) / (np.sqrt(np.dot(x, x)) * np.sqrt(np.dot(y, y)))
+
+
+def create_dedupe_df(addresses, idxs, distances):
+    deduped_df = pd.DataFrame({'address': addresses}).reset_index(drop=True)
+    deduped_df['distance'] = distances.tolist()
+    exploded_df = deduped_df.explode('distance').reset_index(drop=True)
+
+    exploded_df['neighbor_address'] = deduped_df.iloc[np.array(idxs).flatten()]['address'].values
+    return exploded_df[['address', 'neighbor_address', 'distance']]
+
+
+def dedupe_approx_knn(addresses, k=10):
+    """
+    Remove duplicate addresses
+    """
+    tfidf = TfidfVectorizer(analyzer='char', ngram_range=(1, 3))
+    vectors = tfidf.fit_transform(addresses)
+
+    compressed_vectors = compress_vectors(vectors)
+
+    index = pynndescent.NNDescent(compressed_vectors, metric=cosine_distance, n_neighbors=k)
+    idxs, distances = index.query(compressed_vectors, k=k)
+
+    return create_dedupe_df(addresses, idxs, distances)
+
 
 
 def dedupe_faiss(addresses, k=10):
@@ -74,14 +116,14 @@ def dedupe_faiss(addresses, k=10):
 
     index.add(compressed_vectors)
     distances, idxs = index.search(compressed_vectors, k)
-    return idxs
+    return create_dedupe_df(addresses, idxs, distances)
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     data = pd.read_feather('data/extracted_addresses.feather')
 
-    SUBSET_SIZE = 100_000
+    SUBSET_SIZE = 1_000_000
 
     addresses = np.random.choice(data['address'], SUBSET_SIZE, replace=False)
 
@@ -92,13 +134,11 @@ if __name__ == '__main__':
 
 
     start = perf_counter()
-    #match_idxs = get_similar_docs(addresses, query_address)
-    match_idxs = dedupe_faiss(addresses)
+    #match_df = get_similar_docs(addresses, query_address)
+    #match_df = dedupe_faiss(addresses)
+    match_df = dedupe_approx_knn(addresses)
     end = perf_counter()
 
-    print(f'\nQuery address: {query_address}')
-    print('Matched addresses:')
-    #print(data.iloc[match_idxs])
-    print(match_idxs)
+    print(match_df[match_df['distance'] < 0.1])
 
     print('Time taken: {} seconds'.format(end - start))
