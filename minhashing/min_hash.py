@@ -56,7 +56,7 @@ def shingle(string, n_grams=4):
 
 
 if __name__ == '__main__':
-    data = pd.read_feather('../data/extracted_addresses.feather')
+    data = pd.read_feather('data/extracted_addresses.feather')
 
     addresses = data['address'].iloc[:10000]
 
