@@ -42,5 +42,6 @@ def compress_vectors(vectors, n_singluar_values=None):
         n_singluar_values = int(np.sqrt(vectors.shape[1]))
     u, s, vt = svds(vectors, k=n_singluar_values)
     compressed_vectors = (u @ np.diag(s)).astype(np.float32)
+
     logging.info(f'Compressed vectors from {vectors.shape[1]} to {compressed_vectors.shape[1]}')
     return compressed_vectors
