@@ -8,6 +8,8 @@ from time import perf_counter
 from jarowinkler import jarowinkler_similarity
 from rapidfuzz.process import cdist
 import faiss
+import multiprocessing as mp
+import os
 
 import sys
 sys.path.append('../')
@@ -60,36 +62,65 @@ def shingle(string, n_grams=4):
     return shingles
 
 
-def get_embeddings_simvec(addresses, dim=128, metric=jarowinkler_similarity):
-    random_addresses = np.random.choice(list(addresses), dim)
+def get_embeddings_simvec(
+        items, 
+        compare_items, 
+        metric=jarowinkler_similarity
+        ):
+    if compare_items is None:
+        compare_items = np.random.choice(items, 128)
 
-    embeddings = cdist(addresses, random_addresses, scorer=metric)
+    dim = len(compare_items)
+
+    embeddings = cdist(items, compare_items, scorer=metric, workers=1)
     return embeddings
 
-def dedupe_faiss(addresses, cutoff=0.1, k=10):
+
+def dedupe_faiss(items, cutoff=0.1, k=10):
     """
-    Remove duplicate addresses
+    Identify duplicate items 
     """
-    embeddings = get_embeddings_simvec(addresses, dim=128, metric=jarowinkler_similarity)
+    compare_items = np.random.choice(items, 128)
+    #embeddings = get_embeddings_simvec(items, compare_items, metric=jarowinkler_similarity)
+
+    with mp.Pool(os.cpu_count()) as pool:
+        embeddings = pool.starmap(
+                get_embeddings_simvec, 
+                [(items, compare_items, jarowinkler_similarity)]
+                )
+    embeddings = np.array(embeddings).squeeze()
 
     ## Create index
     dim = embeddings.shape[1]
     quantizer = faiss.IndexFlatL2(dim)
 
-    n_centroids = 64
+    n_centroids = 8
     n_bits = 8
-    n_vornoi_cells = 1024
+    n_vornoi_cells = 2 ** n_bits
 
     index = faiss.IndexIVFPQ(quantizer, dim, n_vornoi_cells, n_centroids, n_bits)
     index.nprobe = int(np.sqrt(n_vornoi_cells))
+
+    """
+    ## Add HNSW
+    hnsw_index = faiss.IndexHNSWFlat(dim, 32)
+    hnsw_index.hnsw.efSearch = 64
+    hnsw_index.hnsw.efConstruction = 64
+    index.hnsw_index = hnsw_index
+    """
+
     index.train(embeddings)
     index.add(embeddings)
+    '''
+    index = quantizer
+    index.add(embeddings)
+    '''
 
     ## Get k nearest neighbours
     distances, indices = index.search(embeddings, k)
 
     match_df = pd.DataFrame({
-        'orig_idxs': np.arange(k * len(addresses)) // k,
+        'orig_idxs': np.arange(k * len(items)) // k,
         'match_idxs': indices.flatten(),
         'distance': distances.flatten()
     })
@@ -97,8 +128,8 @@ def dedupe_faiss(addresses, cutoff=0.1, k=10):
     match_df = match_df[match_df['orig_idxs'] != match_df['match_idxs']]
     match_df = match_df[match_df['orig_idxs'] < match_df['match_idxs']]
 
-    match_df['orig_address']  = addresses[match_df['orig_idxs']]
-    match_df['match_address'] = addresses[match_df['match_idxs']]
+    match_df['orig_item']  = items[match_df['orig_idxs']]
+    match_df['match_item'] = items[match_df['match_idxs']]
 
     match_df = match_df[match_df['distance'] < cutoff]
     return match_df
@@ -112,7 +143,7 @@ if __name__ == '__main__':
     data = data[data['address'] != '']
     data = data[data['address'].isnull() == False]
 
-    SUBSET_SIZE = 500_000
+    SUBSET_SIZE = 5_000_000
     random.seed(42)
 
     data['address'] = data['address'].apply(lambda x: x.strip())
@@ -120,6 +151,7 @@ if __name__ == '__main__':
     addresses = np.random.choice(data['address'], SUBSET_SIZE, replace=False)
     ## Remove nulls
     addresses = addresses[addresses != '']
+    addresses = np.unique(addresses)
 
     print('Number of addresses: {}'.format(len(addresses)))
 
@@ -131,9 +163,9 @@ if __name__ == '__main__':
 
     start = perf_counter()
     #match_idxs = get_similar_docs(addresses, query_address, num_perm=8, threshold=0.5)
-    match_df = dedupe_faiss(addresses)
+    match_df = dedupe_faiss(addresses, cutoff=0.1, k=50)
 
-    DISPLAY_COLS = ['orig_address', 'match_address', 'distance']
+    DISPLAY_COLS = ['orig_item', 'match_item', 'distance']
     print(match_df[DISPLAY_COLS])
     end = perf_counter()
 
