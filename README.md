@@ -1,5 +1,11 @@
 # EntityLinker
 Curation of methods and programs to link records with an emphasis on names and addresses.
+To use library:
+```
+git clone https://github.com/jdm365/EntityLinker.git
+cd EntityLinker
+python -m pip install EntityLinker
+```
 
 
 Method 1: Locality Sensitive Hashing
