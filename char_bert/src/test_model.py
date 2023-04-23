@@ -1,48 +1,31 @@
 import torch as T
 import torch.nn as nn
-import transformers
+from transformers import T5ForConditionalGeneration, AutoTokenizer
+import random
 
 
-class HuggingFaceBertWrapper(nn.Module):
-    def __init__(
-            self, 
-            vocab_size, 
-            hidden_size, 
-            num_hidden_layers,
-            hidden_dropout_prob,
-            lr,
-            device
-            ) -> None:
-        self.model = BertForMaskedLM(
-                vocab_size=vocab_size,
-                hidden_size=hidden_size, 
-                num_hidden_layers=num_hidden_layers,
-                intermediate_size=4*num_hidden_layers,
-                hidden_dropout_prob=hidden_dropout_prob,
-                attention_probs_dropout_prob=hidden_dropout_prob
-                )
-
-
-        self.optimizer = optim.AdamW(
-                self.parameters(), 
-                lr=lr, 
-                weight_decay=0.01, 
-                eps=1e-6,
-                betas=(0.9, 0.98)
-                )
-        self.scheduler = optim.lr_scheduler.LinearLR(
-                self.optimizer, 
-                start_factor=1e-6,
-                end_factor=1.0,
-                total_iters=1000
-                )
+class HuggingFaceByt5Wrapper(nn.Module):
+    def __init__(self, device) -> None:
+        super(HuggingFaceByt5Wrapper, self).__init__()
+        self.model = T5ForConditionalGeneration.from_pretrained("google/byt5-base")
+        self.tokenizer = AutoTokenizer.from_pretrained("google/byt5-base")
 
         self.device = device
         self.to(self.device)
 
 
 
-    def forward(self, X: T.tensor, attention_mask: T.tensor = None) -> T.tensor:
-        return self.model(X)['logits']
+    def forward(self, X: str, attention_mask: T.tensor = None) -> T.tensor:
+        X = self.tokenizer(X, return_tensors="pt").input_ids.to(self.device)
+        print(X)
+        return self.model.generate(X, max_length=100)
 
 
+
+if __name__ == "__main__":
+    model = HuggingFaceByt5Wrapper(T.device("cuda:0"))
+    string = f"The dog chases a <extra_id_0><extra_id_1><extra_id_2><extra_id_3> in the park."
+
+    output = model(string)
+    print(output)
+    print(model.tokenizer.batch_decode(output, skip_special_tokens=True))

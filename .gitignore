@@ -10,6 +10,9 @@ __pycache__/
 .Python
 build/
 data/
+trained_models/
+trained_models_fixed/
+wandb/
 develop-eggs/
 dist/
 downloads/

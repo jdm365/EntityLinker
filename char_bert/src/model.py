@@ -160,7 +160,7 @@ class Encoder(nn.Module):
         return X, attention_mask
 
 
-class CrammingTransformer(nn.Module):
+class CharTransformer(nn.Module):
     def __init__(
             self,
             vocab_size,
@@ -174,7 +174,7 @@ class CrammingTransformer(nn.Module):
             lr=5e-4,
             device=T.device('cuda:0' if T.cuda.is_available() else 'cpu')
             ) -> None:
-        super(CrammingTransformer, self).__init__()
+        super(CharTransformer, self).__init__()
         self.embed_dims = embed_dims
 
         self.input_embedding = InputEmbedding(
@@ -206,13 +206,13 @@ class CrammingTransformer(nn.Module):
                 lr=lr, 
                 weight_decay=0.01, 
                 eps=1e-6,
-                betas=(0.9, 0.98)
+                betas=(0.9, 0.999)
                 )
         self.scheduler = optim.lr_scheduler.LinearLR(
                 self.optimizer, 
                 start_factor=1e-6,
                 end_factor=1.0,
-                total_iters=1000
+                total_iters=100
                 )
 
         self.device = device

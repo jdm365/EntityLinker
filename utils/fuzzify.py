@@ -19,7 +19,7 @@ class Fuzzifier:
         return ''.join(result)
 
 
-    def random_deleteions(self, text, frequency):
+    def random_deletions(self, text, frequency):
         """
         Randomly delete characters from a string
         """
@@ -65,7 +65,7 @@ class Fuzzifier:
         """
         avg_frequency = corrupt_frequency / 4
         text = self.random_insertions(text, avg_frequency)
-        text = self.random_deleteions(text, avg_frequency)
+        text = self.random_deletions(text, avg_frequency)
         text = self.random_substitutions(text, avg_frequency)
         text = self.random_transpositions(text, avg_frequency)
         return text

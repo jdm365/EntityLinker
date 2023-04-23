@@ -5,8 +5,9 @@ from tqdm import tqdm
 import sys
 from handler import DataHandler 
 from model import *
-from test_model import HuggingFaceBertWrapper
+from test_model import HuggingFaceByt5Wrapper
 from config import train_configs
+import wandb
 
 
 CONTINUE_FROM_CHECKPOINT     = True 
@@ -14,7 +15,7 @@ TEST_WITH_HUGGING_FACE_MODEL = False
 LOSS_RUNNING_MEAN_LENGTH     = 500
 SHOW_PROGRESS                = True
 DEBUG                        = False 
-MICRO_BATCH_SIZE             = 32
+MICRO_BATCH_SIZE             = 48
 
 def pretrain(
         n_epochs=1,
@@ -41,27 +42,22 @@ def pretrain(
     handler = DataHandler(
             dataset_name='bookcorpus', 
             max_length=seq_length,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
             dtype=dtype,
             device=device
             )
 
     ## Set `batch_size` to MICRO_BATCH_SIZE for memory reasons. Will make backward pass only 
     ## when actual `batch_size` inputs are processed.
-    dataloader = handler.get_dataloader(batch_size=MICRO_BATCH_SIZE)
+    dataloader = handler.get_dataloader(micro_batch_size=MICRO_BATCH_SIZE)
 
     if TEST_WITH_HUGGING_FACE_MODEL:
         ## Use Huggingface Bert model for MaskedLM to compare to custom model.
-        cramming_model = HuggingFaceBertWrapper(
-            vocab_size=handler.tokenizer.vocab_size, 
-            hidden_size=embed_dims, 
-            num_hidden_layers=n_encoder_blocks,
-            hidden_dropout_prob=dropout_rate,
-            lr=lr,
-            device=device
-            )
+        char_bert_model = HuggingFaceByt5Wrapper(device=device)
     else:
-        cramming_model = CrammingTransformer(
-                vocab_size=handler.tokenizer.vocab_size,
+        char_bert_model = CharTransformer(
+                vocab_size=len(handler.tokenizer),
                 seq_length=seq_length,
                 embed_dims=embed_dims,
                 num_heads=num_heads, 
@@ -74,44 +70,48 @@ def pretrain(
                 )
         if CONTINUE_FROM_CHECKPOINT:
             try:
-                cramming_model.load_model(model_file=model_file)
+                char_bert_model.load_model(model_file=model_file)
             except FileNotFoundError:
                 print(f'No model by the name of {model_file} was found. Training from scratch.')
 
+
+    ## Init wandb
+    wandb.init(project='char_bert', config=train_configs)
 
     progress_bar = tqdm(total=len(dataloader) * n_epochs)
 
     losses = []
     best_loss = 1e12
     for epoch in range(n_epochs):
-        for idx, (X, attention_mask, y) in enumerate(dataloader):
-            X              = X.to(cramming_model.device)
+        for idx, (X, _, y) in enumerate(dataloader):
+            X = X.to(char_bert_model.device)
 
             ## Mask is None in fully packed token case.
-            #attention_mask = attention_mask.to(cramming_model.device)
-            y              = y.to(cramming_model.device)
+            #attention_mask = attention_mask.to(char_bert_model.device)
+            y = y.to(char_bert_model.device)
 
             with T.cuda.amp.autocast():
-                out = cramming_model.forward(X, None)
-                out = out.view(-1, handler.tokenizer.vocab_size)
+                out = char_bert_model.forward(X, None)
+                out = out.view(-1, len(handler.tokenizer))
                 
                 loss = loss_fn(out, y)
 
             loss.backward()
+            wandb.log({'loss': loss.item()})
 
             if idx % (batch_size // MICRO_BATCH_SIZE) == 0:
-                T.nn.utils.clip_grad_value_(cramming_model.parameters(), clip_value=0.5)
-                cramming_model.optimizer.step()
-                cramming_model.scheduler.step()
+                T.nn.utils.clip_grad_value_(char_bert_model.parameters(), clip_value=0.5)
+                char_bert_model.optimizer.step()
+                char_bert_model.scheduler.step()
 
 
                 if DEBUG:
-                    for param in cramming_model.parameters():
+                    for param in char_bert_model.parameters():
                         # Make sure not 0 gradients.
                         print(T.max(param.grad))
 
                 ## Zeroing grad like this is faster. (https://h-huang.github.io/tutorials/recipes/recipes/tuning_guide.html)
-                for param in cramming_model.parameters():
+                for param in char_bert_model.parameters():
                     param.grad = None
                 
             losses.append(loss.item())
@@ -126,14 +126,14 @@ def pretrain(
                 if np.mean(losses) < best_loss:
                     best_loss = np.mean(best_loss)
                     print(f'Tokens ingested: {idx * 128 * MICRO_BATCH_SIZE // 1e6}M')
-                    cramming_model.save_model(model_file=model_file)
+                    char_bert_model.save_model(model_file=model_file)
 
                     ## Prediction sample
                     if SHOW_PROGRESS:
                         idxs = T.argwhere(y[:128] != -100).squeeze()
                         print(
-                                #f'Original Text (Masked):   {handler.tokenizer.decode(X.flatten()[:128])}\n\n', 
-                                #f'Predicted Text:           {handler.tokenizer.decode(T.argmax(out[:128], dim=-1))}\n\n',
+                                f'Original Text (Masked):   {handler.tokenizer.decode(X.flatten()[:128])}\n\n', 
+                                f'Predicted Text:           {handler.tokenizer.decode(T.argmax(out[:128], dim=-1))}\n\n',
                                 f'Original Masked Tokens:    {handler.tokenizer.decode(y[idxs])}\n\n',
                                 f'Predicted Masked Tokens:   {handler.tokenizer.decode(T.argmax(F.softmax(out[:128], dim=-1), dim=-1)[idxs])}\n\n'
                                 )
@@ -141,12 +141,11 @@ def pretrain(
 
             progress_bar.update(1)
             progress_bar.set_description(f'Running Loss: {np.mean(losses)}')
+    wandb.finish()
 
     
 def run_inference(
-    n_epochs=1,
     lr=1e-4,
-    batch_size=1536,
     dtype=T.float16,
     model_file='../trained_models/char_bert.pt',
     num_workers=4,
@@ -159,7 +158,7 @@ def run_inference(
     n_encoder_blocks=12,
     mlp_expansion_factor=4,
     use_gpu=True,
-    loss_fn=T.nn.CrossEntropyLoss(ignore_index=-100)
+    **kwargs
     ) -> None:
     ## Ensure empty cache. Should be done by operating system + cuda but can't hurt.
     T.cuda.empty_cache()
@@ -168,13 +167,15 @@ def run_inference(
     handler = DataHandler(
             dataset_name='bookcorpus',
             max_length=seq_length,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
             dtype=dtype,
             device=device,
             eval=True
             )
 
-    cramming_model = CrammingTransformer(
-            vocab_size=handler.tokenizer.vocab_size,
+    char_bert_model = CharTransformer(
+            vocab_size=len(handler.tokenizer),
             seq_length=seq_length,
             embed_dims=embed_dims,
             num_heads=num_heads, 
@@ -185,7 +186,7 @@ def run_inference(
             lr=lr,
             device=device
             )
-    cramming_model.load_model(model_file=model_file)
+    char_bert_model.load_model(model_file=model_file)
 
 
     while True:
@@ -197,21 +198,16 @@ def run_inference(
                 sys.exit()
 
 
-            tokenized_output = handler.tokenizer(
-                    input_text,
-                    padding='max_length',
-                    truncation=False,
-                    max_length=seq_length
-                    )
+            tokenized_output = handler.tokenizer([input_text])
             X, attention_mask = T.tensor(tokenized_output['input_ids']), T.tensor(tokenized_output['attention_mask'])
 
             X              = X.unsqueeze(dim=0).to(device)
             attention_mask = attention_mask.unsqueeze(dim=0).to(device)
 
-            pred_probs  = F.softmax(cramming_model.forward(X, attention_mask), dim=-1)
+            pred_probs  = F.softmax(char_bert_model.forward(X, attention_mask), dim=-1)
             pred_tokens = T.argmax(pred_probs, dim=-1)
 
-            print(handler.tokenizer.decode(pred_tokens.squeeze()))
+            print(handler.tokenizer.decode(pred_tokens.squeeze().tolist()))
 
 
 
