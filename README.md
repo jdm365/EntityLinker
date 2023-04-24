@@ -4,7 +4,7 @@ To use library:
 ```
 git clone https://github.com/jdm365/EntityLinker.git
 cd EntityLinker
-python -m pip install EntityLinker
+make
 ```
 
 
