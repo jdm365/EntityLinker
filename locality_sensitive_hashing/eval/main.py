@@ -104,28 +104,81 @@ def test_dedup_lsh(data, dedup_col, num_perm=128, threshold=0.6):
             n_duplicates += value - 1
 
     start = perf_counter()
-    idxs = np.array(dedupe_lsh(data[dedup_col], num_perm=num_perm, threshold=threshold))
-    print(idxs)
+    duplicate_idxs = dedupe_lsh(data[dedup_col].values, num_perm=num_perm, threshold=threshold)
+    orig_idxs = np.arange(len(data))
 
+    match_df = pd.DataFrame({
+        'orig_idxs':  orig_idxs,
+        'match_idxs': duplicate_idxs
+    }).explode('match_idxs')
+
+    match_df = match_df[match_df['orig_idxs'] != match_df['match_idxs']]
+    match_df['orig_label']  = np.array(data['label'].values)[match_df['orig_idxs'].values.astype(int)]
+    match_df['match_label'] = np.array(data['label'].values)[match_df['match_idxs'].values.astype(int)]
+    match_df['is_match'] = (match_df['orig_label'] == match_df['match_label']).astype(int)
+
+    print(f'Accuracy:  {np.sum(match_df["is_match"]) / len(match_df)}')
+    print(f'Recall:    {np.sum(match_df["is_match"]) / n_duplicates}')
 
     print('Time taken: {} seconds'.format(perf_counter() - start))
 
 
+def test_sim_search_minhash(data, index_col, search_col, num_perm=128, threshold=0.6):
+    """
+    Test similarity search function
+    @param data: dataframe containing data to search
+    @param index_col: column to use for index
+    @param search_col: column to search
+    @param num_perm: number of permutations to use for minhashing
+    @param threshold: threshold for LSH
+    return: None
+    """
+    start = perf_counter()
+
+    ## Create index
+    index = create_mh_index(data[index_col].values, num_perm=num_perm, threshold=threshold)
+
+    ## Search index
+    match_idxs = []
+    for _, string in enumerate(tqdm(data[search_col].values, desc='Getting Matches')):
+        minhash = hash_string(string, num_perm=num_perm)
+        match_idxs.append(index.query(minhash))
+
+    match_df = pd.DataFrame({
+        'orig_idxs': np.arange(len(data)),
+        'match_idxs': match_idxs,
+    }).explode('match_idxs')
+
+    match_df = match_df.dropna(subset=['match_idxs'])
+    print(match_df)
+    match_df['orig_label']  = np.array(data['label'].values)[match_df['orig_idxs'].values.astype(int)]
+    match_df['match_label'] = np.array(data['label'].values)[match_df['match_idxs'].values.astype(int)]
+    match_df['is_match']    = (match_df['orig_label'] == match_df['match_label']).astype(int)
+
+    print(f'Accuracy:  {np.sum(match_df["is_match"]) / len(match_df)}')
+    print(f'Recall:    {np.sum(match_df["is_match"]) / len(data)}')
+
+    print('Time taken: {} seconds'.format(perf_counter() - start))
+
+
+
+
+
+
 if __name__ == '__main__':
     #FILENAME = '../data/corrupted_addresses_dedup.feather'
-    FILENAME = '../data/corrupted_companies_dedup.feather'
+    #FILENAME = '../data/corrupted_companies_dedup.feather'
     #data = pd.read_feather(FILENAME)
 
     #test_dedup(dedupe_faiss, data, 'address_true', cutoff=0.08, k=25)
     #test_dedup(dedupe_faiss, data, 'company', cutoff=0.08, k=25)
 
     #FILENAME = '../data/corrupted_addresses_dedup.feather'
-    #FILENAME = '../data/corrupted_companies_sim_search.feather'
+    FILENAME = '../data/corrupted_companies_sim_search.feather'
     data = pd.read_feather(FILENAME)
 
     #test_sim_search_faiss(data, 'address_true', 'address_corrupted', cutoff=0.08, k=25)
     #test_sim_search_faiss(data, 'company_true', 'company_corrupted', cutoff=0.30, k=10)
 
-    data = data.sample(frac=0.01).reset_index(drop=True)
-
-    test_dedup_lsh(data, 'company', threshold=0.6, num_perm=128)
+    #test_dedup_lsh(data, 'company', threshold=0.8, num_perm=128)
+    test_sim_search_minhash(data, 'company_true', 'company_corrupted', threshold=0.5, num_perm=256)
