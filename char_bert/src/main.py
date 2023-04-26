@@ -2,12 +2,13 @@ import torch as T
 import torch.nn.functional as F
 import numpy as np
 from tqdm import tqdm
-import sys
-from handler import DataHandler 
-from model import *
-from test_model import HuggingFaceByt5Wrapper
-from config import train_configs
 import wandb
+import sys
+
+from char_bert.src.test_model import HuggingFaceByt5Wrapper
+from char_bert.src.handler import DataHandler, CharTokenizer
+from char_bert.src.model import *
+from char_bert.src.config import train_configs
 
 
 CONTINUE_FROM_CHECKPOINT     = True 
@@ -22,7 +23,7 @@ def pretrain(
         lr=1e-4,
         batch_size=1536,
         dtype=T.float16,
-        model_file='../trained_models/char_bert.pt',
+        model_file='../trained_models/char_bert_base.pt',
         num_workers=4,
         pin_memory=True,
         seq_length=128,
@@ -144,10 +145,10 @@ def pretrain(
     wandb.finish()
 
     
-def run_inference(
+def run_inference_test(
     lr=1e-4,
     dtype=T.float16,
-    model_file='../trained_models/char_bert.pt',
+    model_file='../trained_models/char_bert_base.pt',
     num_workers=4,
     pin_memory=True,
     seq_length=128,
@@ -208,6 +209,58 @@ def run_inference(
             pred_tokens = T.argmax(pred_probs, dim=-1)
 
             print(handler.tokenizer.decode(pred_tokens.squeeze().tolist()))
+
+
+
+def get_embeddings(
+    input_text,
+    lr=1e-4,
+    dtype=T.float16,
+    model_file='trained_models_fixed/char_bert_base.pt',
+    num_workers=4,
+    pin_memory=True,
+    seq_length=128,
+    embed_dims=768, 
+    num_heads=12, 
+    has_bias=True,
+    dropout_rate=0.2,
+    n_encoder_blocks=12,
+    mlp_expansion_factor=4,
+    use_gpu=True,
+    **kwargs
+    ) -> None:
+    ## Ensure empty cache. Should be done by operating system + cuda but can't hurt.
+    T.cuda.empty_cache()
+
+    device  = T.device('cuda:0' if use_gpu else 'cpu')
+
+    tokenizer = CharTokenizer(max_length=128)
+    char_bert_model = CharTransformer(
+            vocab_size=256,
+            seq_length=seq_length,
+            embed_dims=embed_dims,
+            num_heads=num_heads, 
+            has_bias=has_bias,
+            dropout_rate=dropout_rate,
+            n_encoder_blocks=n_encoder_blocks,
+            mlp_expansion_factor=mlp_expansion_factor,
+            lr=lr,
+            device=device
+            )
+
+    char_bert_model.load_model(model_file=model_file)
+
+
+    all_embeddings = []
+    with T.no_grad():
+        encoded_ids = tokenizer.encode(input_text)['input_ids']
+        for ids in tqdm(encoded_ids, desc='Getting Embeddings'):
+            X = T.tensor(ids).unsqueeze(dim=0).to(device)
+
+            embeddings = char_bert_model.get_embeddings(X, None)
+            all_embeddings.append(embeddings.cpu().numpy())
+
+    return np.stack(all_embeddings).squeeze()
 
 
 

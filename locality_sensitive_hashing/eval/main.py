@@ -167,18 +167,18 @@ def test_sim_search_minhash(data, index_col, search_col, num_perm=128, threshold
 
 if __name__ == '__main__':
     #FILENAME = '../data/corrupted_addresses_dedup.feather'
-    #FILENAME = '../data/corrupted_companies_dedup.feather'
+    FILENAME = '../data/corrupted_companies_dedup.feather'
     #data = pd.read_feather(FILENAME)
 
     #test_dedup(dedupe_faiss, data, 'address_true', cutoff=0.08, k=25)
     #test_dedup(dedupe_faiss, data, 'company', cutoff=0.08, k=25)
 
     #FILENAME = '../data/corrupted_addresses_dedup.feather'
-    FILENAME = '../data/corrupted_companies_sim_search.feather'
+    #FILENAME = '../data/corrupted_companies_sim_search.feather'
     data = pd.read_feather(FILENAME)
 
     #test_sim_search_faiss(data, 'address_true', 'address_corrupted', cutoff=0.08, k=25)
     #test_sim_search_faiss(data, 'company_true', 'company_corrupted', cutoff=0.30, k=10)
 
-    #test_dedup_lsh(data, 'company', threshold=0.8, num_perm=128)
-    test_sim_search_minhash(data, 'company_true', 'company_corrupted', threshold=0.5, num_perm=256)
+    test_dedup_lsh(data, 'company', threshold=0.8, num_perm=128)
+    #test_sim_search_minhash(data, 'company_true', 'company_corrupted', threshold=0.5, num_perm=256)

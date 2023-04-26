@@ -221,10 +221,15 @@ class CharTransformer(nn.Module):
 
     def forward(self, X: T.tensor, attention_mask: T.tensor = None) -> T.tensor:
         X = self.input_embedding(X)
-        for idx, encoder_block in enumerate(self.model):
+        for _, encoder_block in enumerate(self.model):
             X, attention_mask = encoder_block(X, attention_mask)
         return self.classifier_head(X)
 
+    def get_embeddings(self, X: T.tensor, attention_mask: T.tensor = None) -> T.tensor:
+        X = self.input_embedding(X)
+        for _, encoder_block in enumerate(self.model):
+            X, attention_mask = encoder_block(X, attention_mask)
+        return X.mean(dim=-2)
 
     def save_model(self, model_file: str) -> None:
         print(f'...Saving Model to {model_file}...')
