@@ -47,8 +47,8 @@ def test_sim_search_knn(data, index_col, search_col, k=10):
     """
     start = perf_counter()
 
-    index_embeddings, tfidf = get_compressed_embeddings(data[index_col].values, dim=64, return_tfidf=True)
-    search_embeddings       = compress_vectors(tfidf.transform(data[search_col].values), n_singular_values=64)
+    index_embeddings, tfidf = get_embeddings(data[index_col].values)
+    search_embeddings       = tfidf.transform(data[search_col].values)
 
     ## Create index
     neighbors = NearestNeighbors(n_neighbors=k, n_jobs=-1, algorithm='kd_tree')
@@ -82,15 +82,14 @@ def test_sim_search_approx_knn(data, index_col, search_col, k=10):
     """
     start = perf_counter()
 
-    index_embeddings, tfidf = get_compressed_embeddings(data[index_col].values, dim=64, return_tfidf=True)
-    search_embeddings       = compress_vectors(tfidf.transform(data[search_col].values), n_singular_values=64)
+    index_embeddings, tfidf = get_embeddings(data[index_col].values)
+    search_embeddings       = tfidf.transform(data[search_col].values)
 
     ## Create index
     index = get_approx_knn_index(index_embeddings, k=k)
 
     ## Search index
     indices, distances = index.query(search_embeddings, k=k)
-    logging.info('Search complete')
 
     match_df = pd.DataFrame({
         'orig_idxs': np.arange(k * len(data)) // k,
@@ -164,5 +163,4 @@ if __name__ == '__main__':
 
     #test_sim_search_faiss(data, 'address_true', 'address_corrupted', cutoff=0.08, k=25)
     #test_sim_search_knn(data, 'company_true', 'company_corrupted', k=5)
-    #test_sim_search_approx_knn(data, 'company_true', 'company_corrupted', k=5)
-    test_sim_search_faiss(data, 'company_true', 'company_corrupted', k=5)
+    test_sim_search_approx_knn(data, 'company_true', 'company_corrupted', k=5)
