@@ -1,12 +1,12 @@
+import torch as T 
 import pandas as pd
 import numpy as np
 from time import perf_counter
-from sklearn.neighbors import NearestNeighbors
 import logging
 
 from char_bert.src.main import *
 from char_bert.src.utils import *
-from char_bert.src.test_model import HuggingFaceByt5Wrapper
+from char_bert.src.test_model import HuggingFaceByt5Wrapper, ModelSize
 
 
 def test_dedup(dedup_func, data, dedup_col, **kwargs):
@@ -40,10 +40,10 @@ def test_dedup(dedup_func, data, dedup_col, **kwargs):
 def test_sim_search_faiss(data, index_col, search_col, k=10):
     """
     Test similarity search function
-    @param sim_search_func: similarity search function
     @param data: dataframe containing data to search
+    @param index_col: column to index
     @param search_col: column to search
-    @param kwargs: keyword arguments to pass to similarity search function
+    @param k: number of nearest neighbours to return
     return: None
     """
     start = perf_counter()
@@ -92,9 +92,10 @@ def test_sim_search_faiss_byt5(data, index_col, search_col, k=10):
 
     for idx, batch in enumerate(tqdm(data[search_col].to_list())):
         search_embeddings.append(model.get_embeddings(batch))
+    
+    index_embeddings  = T.stack(index_embeddings).cpu().numpy()
+    search_embeddings = T.stack(search_embeddings).cpu().numpy()
 
-    index_embeddings  = np.vstack(index_embeddings)
-    search_embeddings = np.vstack(search_embeddings)
 
     ## Create index
     index = create_faiss_index(index_embeddings)
@@ -207,7 +208,7 @@ if __name__ == '__main__':
     #test_dedup(dedupe_faiss, data, 'company', k=5)
     #test_dedup(dedupe_knn, data, 'company', k=5)
     #test_dedup(dedupe_approx_knn, data, 'company', k=5)
-    #test_dedup(dedupe_approx_knn, data, 'company', k=5)
+    #test_dedup(dedupe_byt5, data, 'company', k=5, model=HuggingFaceByt5Wrapper(model_size=ModelSize.BASE))
 
     #FILENAME = '../data/corrupted_addresses_dedup.feather'
     FILENAME = '../data/corrupted_companies_sim_search.feather'

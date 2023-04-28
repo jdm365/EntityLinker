@@ -4,15 +4,28 @@ from transformers import T5ForConditionalGeneration, AutoTokenizer
 import random
 
 
+## Create enum for model size
+class ModelSize:
+    SMALL = "small"
+    BASE  = "base"
+    LARGE = "large"
+    XLARGE = "xlarge"
+
+
+
 class HuggingFaceByt5Wrapper(nn.Module):
-    def __init__(self, device=None) -> None:
+    def __init__(self, model_size=None, device=None) -> None:
         super(HuggingFaceByt5Wrapper, self).__init__()
-        self.model = T5ForConditionalGeneration.from_pretrained("google/byt5-small")
-        self.tokenizer = AutoTokenizer.from_pretrained("google/byt5-small")
+        self.model_size = model_size
+        if model_size is None:
+            self.model_size = ModelSize.BASE
+
+        self.model = T5ForConditionalGeneration.from_pretrained(f"google/byt5-{self.model_size}")
+        self.tokenizer = AutoTokenizer.from_pretrained(f"google/byt5-{self.model_size}")
 
         self.device = device
         if device is None:
-            self.device = T.device("cuda" if T.cuda.is_available() else "cpu") 
+            self.device = T.device("cuda:0" if T.cuda.is_available() else "cpu") 
         self.to(self.device)
 
     def forward(self, X: str, attention_mask: T.tensor = None) -> T.tensor:
@@ -27,7 +40,8 @@ class HuggingFaceByt5Wrapper(nn.Module):
 
 
 if __name__ == "__main__":
-    model = HuggingFaceByt5Wrapper()
+    model_size = ModelSize.LARGE
+    model = HuggingFaceByt5Wrapper(model_size=model_size)
     string = f"The dog chases a ball in the park."
 
     output = model.get_embeddings(string)
