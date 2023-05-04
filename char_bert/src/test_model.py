@@ -1,7 +1,6 @@
 import torch as T
 import torch.nn as nn
 from transformers import T5ForConditionalGeneration, AutoTokenizer
-import random
 
 
 ## Create enum for model size

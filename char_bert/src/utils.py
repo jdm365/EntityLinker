@@ -51,7 +51,7 @@ def dedupe_char_bert(items, k=5):
 
 def dedupe_byt5(items, model, k=5):
     index_embeddings = []
-    for idx, batch in enumerate(tqdm(items.to_list())):
+    for batch in tqdm(items.to_list(), desc='Getting Embeddings'):
         index_embeddings.append(model.get_embeddings(batch))
 
     index_embeddings = T.stack(index_embeddings).cpu().numpy()
@@ -64,3 +64,4 @@ def dedupe_byt5(items, model, k=5):
 
     create_dedupe_df(indices, distances)
     return create_dedupe_df(indices, distances)
+
