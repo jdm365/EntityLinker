@@ -93,6 +93,18 @@ class DataHandler:
             device=T.device('cuda:0' if T.cuda.is_available() else 'cpu'),
             eval=False
             ) -> None:
+        """
+        Handler for loading and preprocessing data.
+        @param dataset_name: Name of the dataset to be used.
+        @param max_length: Maximum length of the input sequence.
+        @param subset_size: Size of the subset of the dataset to be used.
+        @param num_workers: Number of workers for the dataloader.
+        @param pin_memory: Whether to pin memory for the dataloader.
+        @param dtype: Data type of the input ids.
+        @param device: Device to be used for the dataloader.
+        @param eval: Whether to evaluate the model.
+        """
+
         ## Read data function
         self.text_data   = datasets.load_dataset(dataset_name, 'plain_text', split='train')['text']
         self.max_length  = max_length
@@ -112,6 +124,9 @@ class DataHandler:
 
 
     def condense_dataset(self):
+        """
+        Concatenate huggingface dataset to be of max_length.
+        """
         if self.subset_size is not None:
             self.text_data = self.text_data[:self.subset_size]
 

@@ -36,6 +36,25 @@ def pretrain(
         use_gpu=True,
         loss_fn=T.nn.CrossEntropyLoss(ignore_index=-100)
         ) -> None:
+    """
+    Pretrain CharBERT model on BookCorpus dataset.
+    @param n_epochs: Number of epochs to train for
+    @param lr: Learning rate
+    @param batch_size: Batch size
+    @param dtype: Data type to use for model parameters
+    @param model_file: File to save model to
+    @param num_workers: Number of workers for dataloader
+    @param pin_memory: Whether to pin memory for dataloader
+    @param seq_length: Sequence length
+    @param embed_dims: Embedding dimensions
+    @param num_heads: Number of heads in multi-head attention
+    @param has_bias: Whether to use bias in multi-head attention
+    @param dropout_rate: Dropout rate
+    @param n_encoder_blocks: Number of encoder blocks
+    @param mlp_expansion_factor: Expansion factor for MLP in encoder blocks
+    @param use_gpu: Whether to use GPU
+    @param loss_fn: Loss function
+    """
     ## Ensure empty cache. Should be done by operating system + cuda but can't hurt.
     T.cuda.empty_cache()
 
@@ -161,6 +180,23 @@ def run_inference_test(
     use_gpu=True,
     **kwargs
     ) -> None:
+    """
+    Run inference test on trained model.
+    @param lr: Learning rate
+    @param dtype: Data type
+    @param model_file: Path to model file
+    @param num_workers: Number of workers for dataloader
+    @param pin_memory: Pin memory for dataloader 
+    @param seq_length: Sequence length
+    @param embed_dims: Embedding dimensions
+    @param num_heads: Number of heads
+    @param has_bias: Whether to use bias in attention
+    @param dropout_rate: Dropout rate
+    @param n_encoder_blocks: Number of encoder blocks
+    @param mlp_expansion_factor: Expansion factor for MLP
+    @param use_gpu: Whether to use GPU
+    @param kwargs: Additional arguments
+    """
     ## Ensure empty cache. Should be done by operating system + cuda but can't hurt.
     T.cuda.empty_cache()
 
@@ -229,6 +265,23 @@ def get_embeddings(
     use_gpu=True,
     **kwargs
     ) -> None:
+    """
+    Run inference test on trained model
+    @param lr: Learning rate 
+    @param dtype: Data type
+    @param model_file: Path to model file
+    @param num_workers: Number of workers for dataloader
+    @param pin_memory: Pin memory for dataloader
+    @param seq_length: Sequence length
+    @param embed_dims: Embedding dimensions
+    @param num_heads: Number of heads
+    @param has_bias: Whether to use bias 
+    @param dropout_rate: Dropout rate
+    @param n_encoder_blocks: Number of encoder blocks
+    @param mlp_expansion_factor: Expansion factor for Encoder MLP 
+    @param use_gpu: Whether to use GPU
+    @param kwargs: Additional arguments
+    """
     ## Ensure empty cache. Should be done by operating system + cuda but can't hurt.
     T.cuda.empty_cache()
 

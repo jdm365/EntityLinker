@@ -11,6 +11,12 @@ from tfidf.lib.vector_compression import compress_vectors
 
 
 def create_dedupe_df(idxs, distances):
+    """
+    Create a dataframe of matches from the output of a knn model
+    @param idxs: array of indices of matches
+    @param distances: array of distances of matches
+    @return: dataframe of matches
+    """
     deduped_df = pd.DataFrame({
         'orig_idxs': np.arange(len(idxs)),
         'match_idxs': idxs.tolist(), 
@@ -23,6 +29,13 @@ def create_dedupe_df(idxs, distances):
 
 
 def get_compressed_embeddings(items, dim=None, return_tfidf=False):
+    """
+    Get compressed embeddings from a list of items
+    @param items: list of items
+    @param dim: dimension of compressed embeddings
+    @param return_tfidf: whether to return tfidf vectorizer
+    @return: compressed embeddings
+    """
     vectors, tfidf = get_embeddings(items)
     compressed_vectors = compress_vectors(vectors, n_singular_values=dim)
     if return_tfidf:
@@ -31,6 +44,11 @@ def get_compressed_embeddings(items, dim=None, return_tfidf=False):
 
 
 def get_embeddings(items):
+    """
+    Get embeddings from a list of items
+    @param items: list of items
+    @return: (embeddings, tfidf vectorizer)
+    """
     tfidf = TfidfVectorizer(analyzer='char', ngram_range=(2, 3))
     vectors = tfidf.fit_transform(items)
 
@@ -40,6 +58,9 @@ def get_embeddings(items):
 def dedupe_knn(items, k=10):
     """
     Remove duplicates 
+    @param items: list of items
+    @param k: number of neighbors to consider
+    @return: dataframe of matches
     """
     compressed_vectors = get_compressed_embeddings(items, dim=64)
 
@@ -53,6 +74,9 @@ def dedupe_knn(items, k=10):
 def euclidean_distance(x, y):
     """
     Calculate euclidean distance between two vectors
+    @param x: vector
+    @param y: vector
+    @return: euclidean distance
     """
     return np.sqrt(np.sum((x - y)**2))
 
@@ -61,11 +85,20 @@ def euclidean_distance(x, y):
 def cosine_distance(x, y):
     """
     Calculate cosine distance between two vectors
+    @param x: vector
+    @param y: vector
+    @return: cosine distance
     """
     return 1 - np.dot(x, y) / (np.sqrt(np.dot(x, x)) * np.sqrt(np.dot(y, y)))
 
 
 def get_approx_knn_index(embeddings, k=10):
+    """
+    Create an approximate knn index
+    @param embeddings: embeddings
+    @param k: number of neighbors to consider
+    @return: approximate knn index
+    """
     index = pynndescent.NNDescent(embeddings, metric=euclidean_distance, n_neighbors=k)
     return index
 
@@ -73,6 +106,9 @@ def get_approx_knn_index(embeddings, k=10):
 def dedupe_approx_knn(items, k=10):
     """
     Remove duplicates 
+    @param items: list of items
+    @param k: number of neighbors to consider
+    @return: dataframe of matches
     """
     compressed_vectors = get_compressed_embeddings(items, dim=64)
 
@@ -83,6 +119,11 @@ def dedupe_approx_knn(items, k=10):
 
 
 def create_faiss_index(embeddings):
+    """
+    Create a faiss index
+    @param embeddings: embeddings
+    @return: faiss index
+    """
     ## Pad to multiple of 8
     if embeddings.shape[1] % 8 != 0:
         embeddings = np.pad(
@@ -102,6 +143,9 @@ def create_faiss_index(embeddings):
 def dedupe_faiss(items, k=5):
     """
     Remove duplicates 
+    @param items: list of items
+    @param k: number of neighbors to consider
+    @return: dataframe of matches
     """
     compressed_vectors = get_compressed_embeddings(items)
     index = create_faiss_index(compressed_vectors)
@@ -109,5 +153,3 @@ def dedupe_faiss(items, k=5):
 
     distances, idxs = index.search(compressed_vectors, k)
     return create_dedupe_df(idxs, distances)
-
-

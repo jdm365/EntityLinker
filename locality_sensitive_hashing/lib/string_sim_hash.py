@@ -5,11 +5,14 @@ from rapidfuzz.process import cdist
 import faiss
 
 
-def get_embeddings_simvec(
-        items, 
-        compare_items, 
-        metric=jarowinkler_similarity
-        ):
+def get_embeddings_simvec(items, compare_items, metric=jarowinkler_similarity):
+    """
+    Get similarity vector between items and compare_items
+    @param items: list of strings
+    @param compare_items: list of strings
+    @param metric: similarity metric
+    @return: similarity vector
+    """
     if compare_items is None:
         compare_items = np.random.choice(items, 128)
 
@@ -18,6 +21,11 @@ def get_embeddings_simvec(
 
 
 def create_faiss_index(embeddings):
+    """
+    Create FAISS index
+    @param embeddings: embeddings
+    @return: FAISS index
+    """
     ## Create index
     dim = embeddings.shape[1]
     quantizer = faiss.IndexFlatL2(dim)
@@ -49,6 +57,10 @@ def create_faiss_index(embeddings):
 def dedupe_faiss(items, cutoff=0.1, k=10):
     """
     Identify duplicate items 
+    @param items: list of strings
+    @param cutoff: cutoff for similarity
+    @param k: number of nearest neighbours
+    @return: dataframe of matches
     """
     items = np.array(items)
     compare_items = np.random.choice(items, 128)
