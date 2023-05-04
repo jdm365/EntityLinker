@@ -5,6 +5,8 @@ import pynndescent
 import faiss
 import numpy as np
 import numba
+from rank_bm25 import BM25Okapi
+from tqdm import tqdm
 
 from tfidf.lib.vector_compression import compress_vectors
 
@@ -152,4 +154,35 @@ def dedupe_faiss(items, k=5):
     index.nprobe = 32
 
     distances, idxs = index.search(compressed_vectors, k)
+    return create_dedupe_df(idxs, distances)
+
+def dedupe_bm25(items, k=5):
+    """
+    Remove duplicates 
+    @param items: list of items
+    @param k: number of neighbors to consider
+    @return: dataframe of matches
+    """
+    ## Shingle each item to 2-4 ngams
+    shingled_items = []
+    for item in tqdm(items):
+        items_shingled = []
+        for size in [2, 3, 4]:
+            items_shingled.append(" ".join([item[i:i + size] for i in range(len(item) - size + 1)]))
+           
+        shingled_items.append(items_shingled)
+
+
+    all_distances = []
+    all_idxs = []
+    bm25 = BM25Okapi(shingled_items)
+    for item in tqdm(shingled_items):
+        distances = bm25.get_scores(item)
+        idxs = np.argsort(distances)[-k:]
+
+        all_distances.append(distances)
+        all_idxs.append(idxs)
+
+    distances = np.stack(distances, axis=1)
+    idxs = np.stack(idxs, axis=1)
     return create_dedupe_df(idxs, distances)
