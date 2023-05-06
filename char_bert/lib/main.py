@@ -5,10 +5,10 @@ from tqdm import tqdm
 import wandb
 import sys
 
-from char_bert.src.test_model import HuggingFaceByt5Wrapper
-from char_bert.src.handler import DataHandler, CharTokenizer
-from char_bert.src.model import *
-from char_bert.src.config import train_configs
+from char_bert.lib.test_model import HuggingFaceByt5Wrapper
+from char_bert.lib.handler import DataHandler, CharTokenizer
+from char_bert.lib.model import *
+from char_bert.lib.config import train_configs
 
 
 CONTINUE_FROM_CHECKPOINT     = True 

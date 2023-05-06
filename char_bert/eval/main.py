@@ -4,9 +4,9 @@ import numpy as np
 from time import perf_counter
 import logging
 
-from char_bert.src.main import *
-from char_bert.src.utils import *
-from char_bert.src.test_model import HuggingFaceByt5Wrapper, ModelSize
+from char_bert.lib.main import *
+from char_bert.lib.utils import *
+from char_bert.lib.test_model import HuggingFaceByt5Wrapper, ModelSize
 
 
 def test_dedup(dedup_func, data, dedup_col, **kwargs):

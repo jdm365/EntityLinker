@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import faiss
 
-from char_bert.src.main import *
+from char_bert.lib.main import *
 
 
 def create_faiss_index(embeddings):
@@ -15,11 +15,14 @@ def create_faiss_index(embeddings):
                 'constant', 
                 constant_values=0
                 )
-
-    index = faiss.index_factory(embeddings.shape[-1], "IVF512,PQ32")
-    index.train(embeddings)
-    index.add(embeddings)
-    index.nprobe = 32
+    if embeddings.shape[0] > 50_000:
+        index = faiss.index_factory(embeddings.shape[-1], "IVF512,PQ32")
+        index.train(embeddings)
+        index.add(embeddings)
+        index.nprobe = 32
+    else:
+        index = faiss.IndexFlatL2(embeddings.shape[-1])
+        index.add(embeddings)
 
     return index
 

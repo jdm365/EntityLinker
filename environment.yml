@@ -21,3 +21,4 @@ dependencies:
   - torch
   - tqdm
   - transformers
+  - pytest

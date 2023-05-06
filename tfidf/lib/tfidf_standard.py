@@ -27,6 +27,7 @@ def create_dedupe_df(idxs, distances):
 
     ## Remove self matches
     deduped_df = deduped_df[deduped_df['orig_idxs'] != deduped_df['match_idxs']]
+    deduped_df = deduped_df[deduped_df['orig_idxs'] < deduped_df['match_idxs']]
     return deduped_df
 
 
@@ -80,7 +81,7 @@ def euclidean_distance(x, y):
     @param y: vector
     @return: euclidean distance
     """
-    return np.sqrt(np.sum((x - y)**2))
+    return np.sqrt(np.sum((x - y) ** 2))
 
 
 @numba.jit(fastmath=True)
@@ -121,25 +122,24 @@ def dedupe_approx_knn(items, k=10):
 
 
 def create_faiss_index(embeddings):
-    """
-    Create a faiss index
-    @param embeddings: embeddings
-    @return: faiss index
-    """
     ## Pad to multiple of 8
-    if embeddings.shape[1] % 8 != 0:
+    if embeddings.shape[-1] % 8 != 0:
         embeddings = np.pad(
                 embeddings, 
-                ((0, 0), (0, 8 - embeddings.shape[1] % 8)),
+                ((0, 0), (0, 8 - embeddings.shape[-1] % 8)),
                 'constant', 
                 constant_values=0
                 )
+    if embeddings.shape[0] > 50_000:
+        index = faiss.index_factory(embeddings.shape[-1], "IVF512,PQ32")
+        index.train(embeddings)
+        index.add(embeddings)
+        index.nprobe = 32
+    else:
+        index = faiss.IndexFlatL2(embeddings.shape[-1])
+        index.add(embeddings)
 
-    index = faiss.index_factory(embeddings.shape[1], "IVF256,PQ32x8")
-    index.train(embeddings)
-    index.add(embeddings)
-
-    return index
+    return index, embeddings
 
 
 def dedupe_faiss(items, k=5):
@@ -150,11 +150,11 @@ def dedupe_faiss(items, k=5):
     @return: dataframe of matches
     """
     compressed_vectors = get_compressed_embeddings(items)
-    index = create_faiss_index(compressed_vectors)
-    index.nprobe = 32
+    index, compressed_vectors = create_faiss_index(compressed_vectors)
 
     distances, idxs = index.search(compressed_vectors, k)
     return create_dedupe_df(idxs, distances)
+
 
 def dedupe_bm25(items, k=5):
     """
@@ -163,12 +163,14 @@ def dedupe_bm25(items, k=5):
     @param k: number of neighbors to consider
     @return: dataframe of matches
     """
+    raise NotImplementedError
+
     ## Shingle each item to 2-4 ngams
     shingled_items = []
     for item in tqdm(items):
         items_shingled = []
         for size in [2, 3, 4]:
-            items_shingled.append(" ".join([item[i:i + size] for i in range(len(item) - size + 1)]))
+            items_shingled.append(" ".join([item[idx:idx + size] for idx in range(len(item) - size + 1)]))
            
         shingled_items.append(items_shingled)
 
@@ -178,11 +180,13 @@ def dedupe_bm25(items, k=5):
     bm25 = BM25Okapi(shingled_items)
     for item in tqdm(shingled_items):
         distances = bm25.get_scores(item)
+        if len(distances) == 0:
+            continue
         idxs = np.argsort(distances)[-k:]
 
         all_distances.append(distances)
         all_idxs.append(idxs)
 
-    distances = np.stack(distances, axis=1)
-    idxs = np.stack(idxs, axis=1)
+    distances = np.concatenate(distances)
+    idxs = np.concatenate(idxs)
     return create_dedupe_df(idxs, distances)
