@@ -1,0 +1,23 @@
+name: EntityLinkerEnv 
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - datasets
+  - datasketch
+  - faiss
+  - faiss_cpu
+  - geopandas
+  - jarowinkler
+  - numba
+  - numpy
+  - pandas
+  - pynndescent
+  - rank_bm25
+  - rapidfuzz
+  - scikit-learn
+  - scipy
+  - setuptools
+  - torch
+  - tqdm
+  - transformers

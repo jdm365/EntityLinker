@@ -10,6 +10,14 @@ cd EntityLinker
 make
 ```
 
+To use with environment.yml:
+```
+git clone https://github.com/jdm365/EntityLinker.git
+cd EntityLinker
+conda env create -f environment.yml
+conda activate EntityLinkerEnv
+make
+```
 
 Method 1: Locality Sensitive Hashing
 Locality sentive hashing is done by hashing shingles of a string with N different
