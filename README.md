@@ -33,6 +33,11 @@ so we avoided using precision as a metric and rather view these algorithms as
 "candidate generation methods". Therefore a high recall and reasonable runtime are very
 valuable but excellent precision is not as important.
 
+To run evaluation on all of the modules run the `eval/main.py` file.
+
+
+To test modules run `pytest`.
+
 
 We offer three methods in this repo chiefly supported by the libraries datasketch (for lsh),
 sklearn (for tfidf and kd_tree knn), HuggingFace (for the char_bert, mainly Byt5, model), 
@@ -56,18 +61,19 @@ The model is part of the T5 family of models.
 
 
 
-FUNCS:
+Main Function APIs:
+
 LSH
-dedupe_lsh(items, model, k=5)
+    dedupe_lsh(items, model, k=5)
 
 
 TFIDF
-dedupe_knn(items, k=5)
+    dedupe_knn(items, k=5)
 
 
 BYT5
-HuggingFaceByt5Wrapper()
-	forward(X: str)
-	get_embedding(X: str)
+    HuggingFaceByt5Wrapper()
+        forward(X: str)
+        get_embedding(X: str)
 
-dedupe_byt5(items, model, k=5)
+    dedupe_byt5(items, model, k=5)
