@@ -138,4 +138,7 @@ If n_singular_values is None then the minimum of the square root of the dimensio
 vectors           - List/Array/Matrix of sparse vectors to compress. \
 n_singular_values - number of singular values to use in SVD. Dimensionality of resultant vectors.
 
-
+<h3>Presentation</h3>
+https://docs.google.com/presentation/d/163iJrSbX4aUdopeNto2RVcWBnG9Pq7SPQI1hFDPZnLo/edit?usp=sharing
+<h3>Website</h3>
+https://qianleng.georgetown.domains/NLP/index.html
