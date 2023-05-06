@@ -16,6 +16,7 @@ conda env create -f environment.yml
 conda activate EntityLinkerEnv
 make
 ```
+**Note: May take ~10 minutes to resolve dependencies and create conda environment.
 
 ![Entity Linker Package Diagram](utils/EntityLinkerPackageDiagram.png)
 
@@ -34,6 +35,7 @@ so we avoided using precision as a metric and rather view these algorithms as
 valuable but excellent precision is not as important.
 
 To run evaluation on all of the modules run the `eval/main.py` file.
+All evaluation should be run from the respecitve `eval` directories for path to `data` directory.
 
 
 To test modules run `pytest`.

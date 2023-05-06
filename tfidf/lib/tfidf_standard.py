@@ -5,7 +5,6 @@ import pynndescent
 import faiss
 import numpy as np
 import numba
-from rank_bm25 import BM25Okapi
 from tqdm import tqdm
 
 from tfidf.lib.vector_compression import compress_vectors

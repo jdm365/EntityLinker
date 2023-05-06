@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from time import perf_counter
-from sklearn.neighbors import NearestNeighbors
 import logging
 
 from tfidf.lib.vector_compression import * 
@@ -40,20 +39,15 @@ def test_dedup(dedup_func, data, dedup_col, **kwargs):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
-    #FILENAME = '../data/corrupted_addresses_dedup.feather'
-    FILENAME = 'data/corrupted_companies_dedup.feather'
+    FILENAME = '../data/corrupted_companies_dedup.feather'
     data = pd.read_feather(FILENAME)
 
-    #test_dedup(dedupe_faiss, data, 'address_true', k=5)
     #test_dedup(dedupe_faiss, data, 'company', k=5)
     #test_dedup(dedupe_knn, data, 'company', k=5)
-    #test_dedup(dedupe_approx_knn, data, 'company', k=5)
-    test_dedup(dedupe_bm25, data, 'company', k=5)
+    test_dedup(dedupe_approx_knn, data, 'company', k=5)
 
-    #FILENAME = '../data/corrupted_addresses_dedup.feather'
     #FILENAME = '../data/corrupted_companies_sim_search.feather'
     #data = pd.read_feather(FILENAME)
 
-    #test_sim_search_faiss(data, 'address_true', 'address_corrupted', cutoff=0.08, k=25)
     #test_sim_search_knn(data, 'company_true', 'company_corrupted', k=5)
     #test_sim_search_approx_knn(data, 'company_true', 'company_corrupted', k=5)
